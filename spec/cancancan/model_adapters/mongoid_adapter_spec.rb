@@ -221,7 +221,7 @@ RSpec.describe CanCan::ModelAdapters::MongoidAdapter do
       end.to raise_error(CanCan::Error)
     end
 
-    it 'can handle nested queries for accessible_by' do
+    it 'can handle nested associated queries for accessible_by' do
       @ability.can :read, MongoidSubProject, mongoid_project: { mongoid_category: { name: 'allowed' } }
       cat1 = MongoidCategory.create name: 'notallowed'
       proj1 = cat1.mongoid_projects.create name: 'Proj1'
@@ -231,5 +231,45 @@ RSpec.describe CanCan::ModelAdapters::MongoidAdapter do
       sub2 = proj2.mongoid_sub_projects.create name: 'Sub2'
       expect(MongoidSubProject.accessible_by(@ability).to_a).to match_array([sub2])
     end
+
+    it 'can handle nested embedded queries for accessible_by' do
+      @ability.can :read, MongoidPost, "mongoid_comments" => { name: 'allowed' }
+      post1 = MongoidPost.create
+      proj1 = post1.mongoid_comments.create name: 'notallowed'
+      post2 = MongoidPost.create
+      proj2 = post2.mongoid_comments.create name: 'allowed'
+      expect(MongoidPost.accessible_by(@ability).to_a).to match_array([post2])
+    end
+
+    it 'can handle nested embedded queries for accessible_by with class_name' do
+      @ability.can :read, MongoidPost, "tags" => { name: 'allowed' }
+      post1 = MongoidPost.create
+      proj1 = post1.tags.create name: 'notallowed'
+      post2 = MongoidPost.create
+      proj2 = post2.tags.create name: 'allowed'
+      expect(MongoidPost.accessible_by(@ability).to_a).to match_array([post2])
+    end
+
+    it 'can handle nested embedded queries for accessible_by with array values' do
+      @ability.can :read, MongoidPost, "mongoid_comments" => { :name.in => ['allowed', 'public'] }
+      post1 = MongoidPost.create
+      proj1 = post1.mongoid_comments.create name: 'notallowed'
+      post2 = MongoidPost.create
+      proj2 = post2.mongoid_comments.create name: 'allowed'
+      expect(MongoidPost.accessible_by(@ability).to_a).to match_array([post2])
+    end
+
+    it 'can handle nested embedded queries for accessible_by with class_name' do
+      @ability.can :read, MongoidPost, "tags" => { key: 'public', :name.in => ['allowed', 'yes'] }
+      post1 = MongoidPost.create
+      proj1 = post1.tags.create key: 'private', name: 'allowed'
+      post2 = MongoidPost.create
+      proj2 = post2.tags.create key: 'public', name: 'allowed'
+      post3 = MongoidPost.create
+      proj3 = post2.tags.create key: 'public', name: 'notallowed'
+
+      expect(MongoidPost.accessible_by(@ability).to_a).to match_array([post2])
+    end
+
   end
 end

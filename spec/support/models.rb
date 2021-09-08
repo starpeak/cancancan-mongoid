@@ -31,3 +31,27 @@ class MongoidSubProject
     belongs_to :mongoid_project
   end
 end
+
+class MongoidPost
+  include Mongoid::Document
+
+  embeds_many :mongoid_comments
+  embeds_many :tags, class_name: 'MongoidPostTag'
+end
+
+class MongoidComment
+  include Mongoid::Document
+
+  field :name
+
+  embedded_in :mongoid_post
+end
+
+class MongoidPostTag
+  include Mongoid::Document
+
+  field :key
+  field :name
+
+  embedded_in :mongoid_post
+end

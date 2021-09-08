@@ -67,19 +67,34 @@ module CanCan
       # {user: {:tags.all => []}} becomes {"user_id" => {"$in" => [__, ..]}}
       # {user: {:session => {:tags.all => []}}} becomes {"user_id" => {"session_id" => {"$in" => [__, ..]} }}
       def simplify_relations(model_class, conditions)
-        model_relations = model_class.relations.with_indifferent_access
+        model_relations = model_class.relations#.with_indifferent_access
         Hash[
           conditions.map do |k, v|
-            if (relation = model_relations[k])
+            if (relation = model_relations[k.to_s])
               relation_class_name =
                 (relation.respond_to?(:class_name) ? relation.class_name : relation[:class_name]).presence ||
                 k.to_s.classify
-              v = simplify_relations(relation_class_name.constantize, v)
-              relation_ids = relation_class_name.constantize.where(v).distinct(:_id)
-              k = "#{k}_id"
-              v = { '$in' => relation_ids }
+
+              if relation.embedded?
+                nv = {}
+                v.each do |vk, vv|
+                  nv[vk] = vv
+                end
+
+                [k, {
+                    "$elemMatch"=>nv
+                  }
+                ]
+              else
+                v = simplify_relations(relation_class_name.constantize, v)
+                relation_ids = relation_class_name.constantize.where(v).distinct(:_id)
+                k = "#{k}_id"
+                v = { '$in' => relation_ids }
+                [k, v]
+              end
+            else
+              [k, v]
             end
-            [k, v]
           end
         ]
       end
