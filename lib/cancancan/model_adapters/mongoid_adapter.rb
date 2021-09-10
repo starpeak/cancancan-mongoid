@@ -19,12 +19,48 @@ module CanCan
       def self.matches_conditions_hash?(subject, conditions)
         # To avoid hitting the db, retrieve the raw Mongo selector from
         # the Mongoid Criteria and use Mongoid::Matchers#matches?
-        q = subject.class.where(conditions).selector
-        if subject.respond_to?(:_matches?)
-          subject._matches?(q)
-        else
-          subject.matches?(q)
+
+        embedded = {}
+        direct = {}
+
+        conditions.each do |k,v|
+          if k.to_s =~ /\./
+            embedded[k.split('.').first] = {k.split('.').last => v}
+
+          elsif v.is_a? Hash
+            embedded[k] = v
+          else
+            direct[k] = v
+          end
         end
+        q = subject.class.where(direct)
+
+        unless embedded.blank?
+          embedded.each do |k,v|
+            if subject.send(k).blank?
+              # No embedded found, temporary add one to see if condition accepts blank
+              x = subject.send(k).new
+              unless x._matches?(v)
+                x.destroy
+                return false
+              end
+              x.destroy
+            end
+
+            subject.send(k).each do |e|
+              unless e._matches?(v)
+                return false
+              end
+            end
+          end
+        end
+
+        if subject.respond_to?(:_matches?)
+          subject._matches?(q.selector)
+        else
+          subject.matches?(q.selector)
+        end
+
       end
 
       def database_records
