@@ -117,10 +117,14 @@ module CanCan
                   nv[vk] = vv
                 end
 
-                [k, {
-                    "$elemMatch"=>nv
-                  }
-                ]
+                if nv.keys == ["$not"]
+                  [k,nv]
+                else
+                  [k, {
+                      "$elemMatch"=>nv
+                    }
+                  ]
+                end
               else
                 v = simplify_relations(relation_class_name.constantize, v)
                 relation_ids = relation_class_name.constantize.where(v).distinct(:_id)
